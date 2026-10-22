@@ -38,3 +38,15 @@ jobs:
           keep_files: false
           user_name: github-actions[bot]
           user_email: github-actions[bot]@users.noreply.github.com
+      - name: Report Pages status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/pages > pages-status.txt 2>&1 || true
+          content=$(base64 -w 0 pages-status.txt)
+          sha=$(gh api "repos/${{ github.repository }}/contents/pages-status.txt" --jq '.sha' 2>/dev/null || true)
+          if [ -n "$sha" ]; then
+            gh api --method PUT "repos/${{ github.repository }}/contents/pages-status.txt" -f message="Report Pages status [skip ci]" -f content="$content" -f branch=master -f sha="$sha"
+          else
+            gh api --method PUT "repos/${{ github.repository }}/contents/pages-status.txt" -f message="Report Pages status [skip ci]" -f content="$content" -f branch=master
+          fi
