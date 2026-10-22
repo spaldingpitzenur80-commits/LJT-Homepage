@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -27,6 +27,24 @@ jobs:
           ruby-version: '3.1'
           bundler-cache: true
           cache-version: 0
+      - name: Check and configure Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "Repository: ${{ github.repository }}"
+            echo "Get Pages:"
+            gh api repos/${{ github.repository }}/pages
+            echo "Set Pages build type to workflow:"
+            gh api --method PUT repos/${{ github.repository }}/pages --raw-field build_type=workflow
+          } > pages-report.txt 2>&1 || true
+          content=$(base64 -w 0 pages-report.txt)
+          sha=$(gh api "repos/${{ github.repository }}/contents/pages-report.txt" --jq '.sha' 2>/dev/null || true)
+          if [ -n "$sha" ]; then
+            gh api --method PUT "repos/${{ github.repository }}/contents/pages-report.txt" -f message="Report Pages status [skip ci]" -f content="$content" -f branch=master -f sha="$sha"
+          else
+            gh api --method PUT "repos/${{ github.repository }}/contents/pages-report.txt" -f message="Report Pages status [skip ci]" -f content="$content" -f branch=master
+          fi
       - name: Build with Jekyll
         run: bundle exec jekyll build
         env:
